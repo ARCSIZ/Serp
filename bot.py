@@ -31,6 +31,8 @@ from aiogram.types import (
     User,
 )
 
+from server import start_web
+
 # ──────────────────────────────────────────────────────────────
 #  КОНФИГУРАЦИЯ
 # ──────────────────────────────────────────────────────────────
@@ -261,11 +263,18 @@ async def main() -> None:
     dp.include_router(router)
     dp.startup.register(on_startup)
 
+    # Веб-интерфейс на порту 3000 → https://serp.bothost.tech
+    runner = await start_web(bot)
+
     await bot.delete_webhook(drop_pending_updates=True)
-    await dp.start_polling(
-        bot,
-        allowed_updates=["message", "edited_message", "chat_member", "my_chat_member"],
-    )
+    try:
+        await dp.start_polling(
+            bot,
+            allowed_updates=["message", "edited_message", "chat_member", "my_chat_member"],
+        )
+    finally:
+        await runner.cleanup()
+        await bot.session.close()
 
 
 if __name__ == "__main__":
