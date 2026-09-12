@@ -169,6 +169,55 @@
     </div>
   </section>
 
+  <!-- МОДЕРАЦИЯ -->
+  <section class="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-3">
+    <div class="card rise p-4" style="animation-delay:.34s">
+      <div class="flex items-start justify-between">
+        <span class="text-[12px] text-slate-400">Спам удалён</span><span class="text-[15px]">🛡</span>
+      </div>
+      <div class="kpi-val mt-2" id="mSpam">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">за 7 дней: <span id="mSpam7" class="text-slate-300">—</span></div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.36s">
+      <div class="text-[12px] text-slate-400">Предупреждения</div>
+      <div class="kpi-val mt-2" id="mWarns">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">за 7 дней: <span id="mWarns7" class="text-slate-300">—</span></div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.38s">
+      <div class="text-[12px] text-slate-400">Муты</div>
+      <div class="kpi-val mt-2" id="mMutes">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">ограничений выдано</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.4s">
+      <div class="text-[12px] text-slate-400">Баны</div>
+      <div class="kpi-val mt-2" id="mBans">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">исключений из чата</div>
+    </div>
+    <div class="card rise p-4 col-span-2 lg:col-span-1" style="animation-delay:.42s">
+      <div class="text-[12px] text-slate-400">Жалобы /report</div>
+      <div class="kpi-val mt-2" id="mReports">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">от участников</div>
+    </div>
+  </section>
+
+  <section class="grid lg:grid-cols-3 gap-3 mb-3">
+    <div class="card rise p-5" style="animation-delay:.44s">
+      <h2 class="text-white font-medium mb-1">Нарушители</h2>
+      <p class="text-[12px] text-slate-500 mb-3">активные предупреждения</p>
+      <div id="violators" class="space-y-2 max-h-[230px] overflow-y-auto scroll pr-1"></div>
+    </div>
+    <div class="card rise p-5" style="animation-delay:.46s">
+      <h2 class="text-white font-medium mb-1">Журнал модерации</h2>
+      <p class="text-[12px] text-slate-500 mb-3">последние санкции</p>
+      <div id="modLog" class="space-y-2 max-h-[230px] overflow-y-auto scroll pr-1"></div>
+    </div>
+    <div class="card rise p-5" style="animation-delay:.48s">
+      <h2 class="text-white font-medium mb-1">Жалобы</h2>
+      <p class="text-[12px] text-slate-500 mb-3">поступившие через /report</p>
+      <div id="reportsLog" class="space-y-2 max-h-[230px] overflow-y-auto scroll pr-1"></div>
+    </div>
+  </section>
+
   <!-- ГРАФИК ДИНАМИКИ -->
   <section class="card rise p-5 mb-3" style="animation-delay:.36s">
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -288,10 +337,14 @@ const TYPE_COLORS = {text:'#38bdf8', photo:'#34d399', video:'#c084fc', album:'#f
 const TYPE_NAMES = {text:'Текст', photo:'Фото', video:'Видео', album:'Альбом',
                     gif:'GIF', file:'Файл', audio:'Аудио', poll:'Опрос'};
 const KIND_ICON = {post:'📝', comment:'🗨️', join:'👋', leave:'🚪',
-                   greeting:'✨', rules:'📌', reaction:'❤️', start:'▶️'};
+                   greeting:'✨', rules:'📌', reaction:'❤️', start:'▶️',
+                   spam:'🛡', warn:'⚠️', mute:'🔇', ban:'🔨',
+                   unmute:'🔊', unban:'✅', report:'🚨'};
 const KIND_TEXT = {post:'Новая публикация', comment:'Комментарий', join:'Вступил в чат',
                    leave:'Покинул чат', greeting:'Отправлено приветствие',
-                   rules:'Правила под постом', reaction:'Реакции обновлены', start:'Запуск бота в личке'};
+                   rules:'Правила под постом', reaction:'Реакции обновлены', start:'Запуск бота в личке',
+                   spam:'Спам удалён', warn:'Предупреждение', mute:'Мут выдан', ban:'Бан выдан',
+                   unmute:'Мут снят', unban:'Бан снят', report:'Жалоба /report'};
 
 let state = {days:30, series:{comments:true, joins:true, posts:true}, data:null};
 
@@ -511,6 +564,51 @@ function renderFeed(events){
     </div>`).join('');
 }
 
+function renderModeration(d){
+  const m = d.moderation || {};
+  $('mSpam').textContent    = nf(m.spam);
+  $('mSpam7').textContent   = nf(m.spam_7d);
+  $('mWarns').textContent   = nf(m.warns);
+  $('mWarns7').textContent  = nf(m.warns_7d);
+  $('mMutes').textContent   = nf(m.mutes);
+  $('mBans').textContent    = nf(m.bans);
+  $('mReports').textContent = nf(m.reports);
+
+  const v = d.violators || [];
+  $('violators').innerHTML = v.length ? v.map(x => {
+    const [c1,c2] = hue(x.user_id);
+    return `<div class="flex items-center gap-2.5 rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-2">
+      <div class="avatar" style="background:linear-gradient(135deg,${c1},${c2})">${esc(initials(x.name))}</div>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] text-slate-200 truncate">${esc(x.name)}</div>
+        <div class="text-[11px] text-slate-600 truncate">${esc(x.reason)}</div>
+      </div>
+      <span class="chip flex-none" style="color:#fbbf24;border-color:rgba(251,191,36,.3)">${x.warns} ⚠️</span>
+    </div>`;
+  }).join('') : '<p class="text-[12.5px] text-slate-500">Нарушителей нет — в чате спокойно.</p>';
+
+  const log = d.mod_log || [];
+  $('modLog').innerHTML = log.length ? log.map(x => `
+    <div class="flex items-center gap-2.5 rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-2">
+      <span class="text-[14px]">${KIND_ICON[x.kind]||'•'}</span>
+      <div class="flex-1 min-w-0">
+        <div class="text-[12.5px] text-slate-200 truncate">${esc(x.name)}</div>
+        <div class="text-[11px] text-slate-600 truncate">${esc(x.reason)} · ${esc(x.moderator)}</div>
+      </div>
+      <span class="mono text-[11px] text-slate-600 flex-none">${timeAgo(x.ts)}</span>
+    </div>`).join('') : '<p class="text-[12.5px] text-slate-500">Санкций пока не выдавалось.</p>';
+
+  const reps = d.reports_log || [];
+  $('reportsLog').innerHTML = reps.length ? reps.map(x => `
+    <div class="rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-2">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-[12.5px] text-slate-200 truncate">на ${esc(x.target)}</span>
+        <span class="mono text-[11px] text-slate-600 flex-none">${timeAgo(x.ts)}</span>
+      </div>
+      <div class="text-[11px] text-slate-600 truncate mt-0.5">от ${esc(x.reporter)} · ${esc(x.text)}</div>
+    </div>`).join('') : '<p class="text-[12.5px] text-slate-500">Жалоб не поступало.</p>';
+}
+
 function row(label, value, color){
   return `<div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.06] px-3 py-2">
     <span class="text-slate-400">${label}</span>
@@ -572,6 +670,7 @@ async function load(showSkeleton){
     renderPosts(d.top_posts);
     renderMembers(d.top_members);
     renderFeed(d.recent);
+    renderModeration(d);
     renderSystem(d);
 
     $('updatedAt').textContent = new Date(d.generated_at*1000).toLocaleTimeString('ru-RU');

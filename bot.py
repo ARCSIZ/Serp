@@ -38,6 +38,7 @@ from aiogram.types import (
     User,
 )
 
+import moderation
 import stats
 from server import start_web
 
@@ -280,8 +281,9 @@ async def cmd_start(message: Message, bot: Bot) -> None:
         f"<b>Твой профиль</b>\n{name_card(user)}\n\n"
         f"<b>Что я умею:</b>\n"
         f"• приветствовать новичков в чате обсуждения;\n"
-        f"• поддерживать порядок и чистоту в ленте;\n"
-        f"• подсказывать, где найти свежие публикации.\n\n"
+        f"• автоматически удалять спам и выдавать предупреждения;\n"
+        f"• принимать жалобы по команде <code>/report</code> (ответом на сообщение);\n"
+        f"• публиковать правила под каждым постом канала.\n\n"
         f"Загляни в канал и присоединяйся к разговору 👇"
     )
 
@@ -592,7 +594,8 @@ async def main() -> None:
     )
     dp = Dispatcher()
     dp.update.outer_middleware(StatsMiddleware())
-    dp.include_router(router)
+    dp.include_router(router)            # приветствия, правила, /start
+    dp.include_router(moderation.router) # модерация и антиспам
     dp.startup.register(on_startup)
 
     # Веб-интерфейс на порту 3000 → https://serp.bothost.tech

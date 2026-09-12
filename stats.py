@@ -83,6 +83,40 @@ CREATE TABLE IF NOT EXISTS snapshots (
     chat_members INTEGER,
     ts           INTEGER
 );
+
+CREATE TABLE IF NOT EXISTS warns (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts        INTEGER NOT NULL,
+    user_id   INTEGER NOT NULL,
+    name      TEXT,
+    moderator TEXT,
+    reason    TEXT,
+    active    INTEGER DEFAULT 1
+);
+CREATE INDEX IF NOT EXISTS idx_warns_user ON warns(user_id, active);
+
+CREATE TABLE IF NOT EXISTS punishments (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts        INTEGER NOT NULL,
+    user_id   INTEGER NOT NULL,
+    name      TEXT,
+    kind      TEXT NOT NULL,
+    until_ts  INTEGER,
+    moderator TEXT,
+    reason    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pun_user ON punishments(user_id, ts);
+
+CREATE TABLE IF NOT EXISTS reports (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts            INTEGER NOT NULL,
+    reporter_id   INTEGER,
+    reporter_name TEXT,
+    target_id     INTEGER,
+    target_name   TEXT,
+    message_id    INTEGER,
+    text          TEXT
+);
 """
 
 
@@ -277,6 +311,96 @@ def save_snapshot(subscribers: int | None, chat_members: int | None) -> None:
 
 
 # ──────────────────────────────────────────────────────────────
+#  МОДЕРАЦИЯ
+# ──────────────────────────────────────────────────────────────
+
+def add_warn(user_id: int, name: str, moderator: str, reason: str) -> int:
+    """Добавляет предупреждение и возвращает количество активных."""
+    ts = _now()
+    with _lock:
+        conn = _connect()
+        conn.execute(
+            "INSERT INTO warns (ts, user_id, name, moderator, reason) VALUES (?,?,?,?,?)",
+            (ts, user_id, name, moderator, reason),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT COUNT(*) c FROM warns WHERE user_id=? AND active=1", (user_id,)
+        ).fetchone()
+    record_event("warn", user_id=user_id, name=name, ts=ts, meta={"reason": reason})
+    return int(row["c"] or 0)
+
+
+def warn_count(user_id: int) -> int:
+    with _lock:
+        conn = _connect()
+        row = conn.execute(
+            "SELECT COUNT(*) c FROM warns WHERE user_id=? AND active=1", (user_id,)
+        ).fetchone()
+    return int(row["c"] or 0)
+
+
+def reset_warns(user_id: int) -> int:
+    with _lock:
+        conn = _connect()
+        cur = conn.execute("UPDATE warns SET active=0 WHERE user_id=? AND active=1", (user_id,))
+        conn.commit()
+    return cur.rowcount
+
+
+def add_punishment(
+    user_id: int, name: str, kind: str, until_ts: int | None, moderator: str, reason: str
+) -> None:
+    ts = _now()
+    with _lock:
+        conn = _connect()
+        conn.execute(
+            "INSERT INTO punishments (ts, user_id, name, kind, until_ts, moderator, reason) "
+            "VALUES (?,?,?,?,?,?,?)",
+            (ts, user_id, name, kind, until_ts, moderator, reason),
+        )
+        conn.commit()
+    record_event(kind, user_id=user_id, name=name, ts=ts, meta={"reason": reason})
+
+
+def add_report(
+    reporter_id: int, reporter_name: str, target_id: int | None,
+    target_name: str, message_id: int | None, text: str,
+) -> int:
+    ts = _now()
+    with _lock:
+        conn = _connect()
+        cur = conn.execute(
+            "INSERT INTO reports (ts, reporter_id, reporter_name, target_id, target_name, "
+            "message_id, text) VALUES (?,?,?,?,?,?,?)",
+            (ts, reporter_id, reporter_name, target_id, target_name, message_id, text[:300]),
+        )
+        conn.commit()
+    record_event("report", user_id=reporter_id, name=reporter_name, message_id=message_id, ts=ts)
+    return int(cur.lastrowid or 0)
+
+
+def find_user_by_username(username: str) -> dict[str, Any] | None:
+    """Поиск участника по @username среди тех, кого бот уже видел в чате."""
+    clean = username.lstrip("@").strip().lower()
+    if not clean:
+        return None
+    with _lock:
+        conn = _connect()
+        row = conn.execute(
+            "SELECT * FROM members WHERE lower(username)=? ORDER BY last_seen DESC LIMIT 1",
+            (clean,),
+        ).fetchone()
+    if not row:
+        return None
+    return {
+        "user_id": row["user_id"],
+        "name": (f"{row['first_name']} {row['last_name']}").strip() or "Без имени",
+        "username": row["username"],
+    }
+
+
+# ──────────────────────────────────────────────────────────────
 #  ЧТЕНИЕ И АГРЕГАЦИЯ
 # ──────────────────────────────────────────────────────────────
 
@@ -427,6 +551,54 @@ def build_stats(days: int = 30, channel_short_id: str = "") -> dict[str, Any]:
 
         first_row = conn.execute("SELECT MIN(ts) t FROM events").fetchone()
 
+        moderation = {
+            "spam": _count(conn, "spam"),
+            "warns": _count(conn, "warn"),
+            "mutes": _count(conn, "mute"),
+            "bans": _count(conn, "ban"),
+            "reports": _count(conn, "report"),
+            "spam_7d": _count(conn, "spam", week),
+            "warns_7d": _count(conn, "warn", week),
+            "actions_7d": sum(_count(conn, k, week) for k in ("mute", "ban", "warn")),
+        }
+
+        violators = [
+            {
+                "user_id": r["user_id"],
+                "name": r["name"] or "Без имени",
+                "warns": r["c"],
+                "last_ts": r["last_ts"],
+                "reason": r["reason"] or "—",
+            }
+            for r in conn.execute(
+                "SELECT user_id, name, COUNT(*) c, MAX(ts) last_ts, reason FROM warns "
+                "WHERE active=1 GROUP BY user_id ORDER BY c DESC, last_ts DESC LIMIT 8"
+            )
+        ]
+
+        mod_log = [
+            {
+                "ts": r["ts"],
+                "kind": r["kind"],
+                "name": r["name"] or "—",
+                "moderator": r["moderator"] or "—",
+                "reason": r["reason"] or "—",
+                "until_ts": r["until_ts"],
+            }
+            for r in conn.execute("SELECT * FROM punishments ORDER BY id DESC LIMIT 10")
+        ]
+
+        reports_log = [
+            {
+                "ts": r["ts"],
+                "reporter": r["reporter_name"] or "—",
+                "target": r["target_name"] or "—",
+                "text": r["text"] or "",
+                "message_id": r["message_id"],
+            }
+            for r in conn.execute("SELECT * FROM reports ORDER BY id DESC LIMIT 10")
+        ]
+
     # Сплошной ряд дат без пропусков
     timeseries = []
     for offset in range(days - 1, -1, -1):
@@ -481,6 +653,10 @@ def build_stats(days: int = 30, channel_short_id: str = "") -> dict[str, Any]:
         "recent_posts": recent_posts,
         "top_members": top_members,
         "recent": recent,
+        "moderation": moderation,
+        "violators": violators,
+        "mod_log": mod_log,
+        "reports_log": reports_log,
         "snapshots": snaps,
         "tracking_since": first_row["t"] if first_row and first_row["t"] else now,
     }
