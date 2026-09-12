@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Channel Bot · панель проекта</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    background:#07080c;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Cascadia Mono", monospace; }
+  .grid-bg{
+    background-image:linear-gradient(to right,rgba(255,255,255,.04) 1px,transparent 1px),
+                     linear-gradient(to bottom,rgba(255,255,255,.04) 1px,transparent 1px);
+    background-size:44px 44px;
+    mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 30%,transparent 100%);
+    -webkit-mask-image:radial-gradient(ellipse 90% 60% at 50% 0%,#000 30%,transparent 100%);
+  }
+  .aurora{
+    background:radial-gradient(700px 380px at 15% 0%,rgba(56,189,248,.20),transparent 60%),
+               radial-gradient(600px 340px at 85% 10%,rgba(168,85,247,.16),transparent 60%),
+               radial-gradient(800px 420px at 50% 90%,rgba(34,197,94,.10),transparent 60%);
+    animation:drift 20s ease-in-out infinite alternate;
+  }
+  @keyframes drift{from{transform:translate3d(-1.5%,-1%,0)}to{transform:translate3d(1.5%,1.5%,0)}}
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
+    border:1px solid rgba(255,255,255,.09);
+    box-shadow:0 30px 80px -40px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.06);
+    backdrop-filter:blur(14px);
+  }
+  .rise{opacity:0;transform:translateY(14px);animation:rise .6s cubic-bezier(.2,.7,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .tab-active{background:rgba(255,255,255,.10);color:#fff;border-color:rgba(255,255,255,.18)}
+  pre::-webkit-scrollbar,.scroll::-webkit-scrollbar{width:9px;height:9px}
+  pre::-webkit-scrollbar-thumb,.scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.13);border-radius:9px}
+  .tg-bubble{background:#182533;border-radius:14px 14px 14px 4px}
+  .tg-wall{background:#0e1621;background-image:radial-gradient(rgba(255,255,255,.035) 1px,transparent 1px);background-size:18px 18px}
+  .fade-out{animation:fadeOut .6s ease forwards}
+  @keyframes fadeOut{to{opacity:0;transform:scale(.96) translateY(-6px);filter:blur(2px)}}
+  ::selection{background:rgba(56,189,248,.32)}
+  .kbd{border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);border-radius:6px;padding:1px 6px}
+</style>
+</head>
+<body class="text-slate-200">
+<div class="fixed inset-0 -z-10 grid-bg"></div>
+<div class="fixed inset-0 -z-10 aurora"></div>
+
+<div class="max-w-6xl mx-auto px-5 py-10 sm:py-14">
+
+  <!-- HERO -->
+  <header class="rise">
+    <div class="flex flex-wrap items-center gap-3 mb-5">
+      <span class="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-[11px] mono uppercase tracking-[.15em] text-emerald-300">
+        <span class="h-1.5 w-1.5 rounded-full bg-emerald-400"></span> задача 1 · готово
+      </span>
+      <span class="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-[11px] mono text-slate-400">aiogram 3.x</span>
+      <span class="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-[11px] mono text-slate-400">python 3.10+</span>
+      <span class="rounded-full border border-white/10 bg-white/[.04] px-3 py-1 text-[11px] mono text-slate-400">async</span>
+    </div>
+    <h1 class="text-3xl sm:text-5xl font-semibold tracking-tight text-white leading-[1.1]">
+      Бот канала: приветствия<br class="hidden sm:block"> в личке и в чате обсуждения
+    </h1>
+    <p class="mt-4 max-w-2xl text-[15px] leading-relaxed text-slate-400">
+      Отвечает на <span class="mono text-slate-200">/start</span> в личных сообщениях и встречает каждого нового
+      участника группы обсуждения — с именем, фамилией и кликабельным упоминанием.
+      Приветствие само исчезает через 10 секунд, не засоряя чат.
+    </p>
+  </header>
+
+  <!-- ФИЧИ -->
+  <section class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mt-9">
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.05s">
+      <div class="text-2xl">👋</div>
+      <h3 class="mt-3 font-medium text-white">/start в личке</h3>
+      <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">Персональное приветствие с карточкой профиля и кнопками на канал.</p>
+    </div>
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.1s">
+      <div class="text-2xl">🎉</div>
+      <h3 class="mt-3 font-medium text-white">Встреча новичков</h3>
+      <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">Имя + фамилия + упоминание через <span class="mono">tg://user?id=</span> — работает без @username.</p>
+    </div>
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.15s">
+      <div class="text-2xl">⏱️</div>
+      <h3 class="mt-3 font-medium text-white">Авто-удаление 10 сек</h3>
+      <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">Фоновая задача <span class="mono">asyncio</span> удаляет сообщение, не блокируя бота.</p>
+    </div>
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.2s">
+      <div class="text-2xl">🧹</div>
+      <h3 class="mt-3 font-medium text-white">Чистая лента</h3>
+      <p class="mt-1.5 text-[13px] leading-relaxed text-slate-400">Служебные «вошёл / вышел» убираются автоматически.</p>
+    </div>
+  </section>
+
+  <!-- ПРЕВЬЮ + КОНФИГ -->
+  <section class="grid lg:grid-cols-5 gap-4 mt-4">
+
+    <!-- Демо чата -->
+    <div class="card rise rounded-2xl p-5 lg:col-span-3" style="animation-delay:.25s">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-medium text-white">Живой предпросмотр</h2>
+        <button id="demoBtn" class="rounded-lg bg-white text-slate-900 px-3.5 py-2 text-[13px] font-medium hover:bg-sky-300 transition-colors">
+          ▶ Симулировать вход
+        </button>
+      </div>
+      <div class="tg-wall rounded-xl border border-white/10 p-4 h-[330px] overflow-y-auto scroll" id="chat">
+        <p class="mono text-[11px] text-slate-500 text-center">— чат обсуждения · -1004332798085 —</p>
+      </div>
+      <p class="mt-3 text-[12px] text-slate-500">Нажми кнопку — увидишь, как выглядит приветствие и как оно исчезает через 10 секунд.</p>
+    </div>
+
+    <!-- Конфиг -->
+    <div class="card rise rounded-2xl p-5 lg:col-span-2" style="animation-delay:.3s">
+      <h2 class="font-medium text-white mb-4">Параметры проекта</h2>
+      <dl class="space-y-2.5 text-[13px]">
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.07] px-3 py-2.5">
+          <dt class="text-slate-400">ID канала</dt><dd class="mono text-slate-200">-1004339622999</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.07] px-3 py-2.5">
+          <dt class="text-slate-400">ID обсуждения</dt><dd class="mono text-slate-200">-1004332798085</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.07] px-3 py-2.5">
+          <dt class="text-slate-400">Время жизни</dt><dd class="mono text-emerald-300">10 сек</dd>
+        </div>
+        <div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.07] px-3 py-2.5">
+          <dt class="text-slate-400">Parse mode</dt><dd class="mono text-slate-200">HTML</dd>
+        </div>
+      </dl>
+      <div class="mt-4 rounded-lg border border-amber-400/25 bg-amber-400/[.07] px-3.5 py-3">
+        <p class="text-[12.5px] leading-relaxed text-amber-200/90">
+          <b>Важно:</b> короткий ID канала <span class="mono">4339622999</span> в Bot API
+          пишется как <span class="mono">-1004339622999</span> — префикс <span class="mono">-100</span> обязателен.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- УСТАНОВКА -->
+  <section class="card rise rounded-2xl p-6 sm:p-7 mt-4" style="animation-delay:.35s">
+    <h2 class="font-medium text-white text-lg">Запуск за 5 шагов</h2>
+    <ol class="mt-5 grid md:grid-cols-2 gap-x-8 gap-y-4">
+      <li class="flex gap-3">
+        <span class="shrink-0 h-6 w-6 rounded-lg bg-sky-400/15 border border-sky-400/30 grid place-items-center mono text-[11px] text-sky-300">1</span>
+        <div><p class="text-[14px] text-slate-200">Получи токен у <span class="mono text-sky-300">@BotFather</span></p>
+        <p class="text-[12.5px] text-slate-500 mt-0.5">Команда <span class="mono">/newbot</span>, затем скопируй токен.</p></div>
+      </li>
+      <li class="flex gap-3">
+        <span class="shrink-0 h-6 w-6 rounded-lg bg-sky-400/15 border border-sky-400/30 grid place-items-center mono text-[11px] text-sky-300">2</span>
+        <div><p class="text-[14px] text-slate-200">Установи зависимости</p>
+        <p class="mono text-[12.5px] text-slate-500 mt-0.5">pip install -r requirements.txt</p></div>
+      </li>
+      <li class="flex gap-3">
+        <span class="shrink-0 h-6 w-6 rounded-lg bg-sky-400/15 border border-sky-400/30 grid place-items-center mono text-[11px] text-sky-300">3</span>
+        <div><p class="text-[14px] text-slate-200">Заполни <span class="mono">.env</span></p>
+        <p class="text-[12.5px] text-slate-500 mt-0.5">Скопируй <span class="mono">.env.example</span> → <span class="mono">.env</span> и вставь токен.</p></div>
+      </li>
+      <li class="flex gap-3">
+        <span class="shrink-0 h-6 w-6 rounded-lg bg-emerald-400/15 border border-emerald-400/30 grid place-items-center mono text-[11px] text-emerald-300">4</span>
+        <div><p class="text-[14px] text-slate-200">Сделай бота <b>админом</b> в группе обсуждения</p>
+        <p class="text-[12.5px] text-slate-500 mt-0.5">Нужны права: <span class="mono">удаление сообщений</span> — иначе приветствие не сотрётся.</p></div>
+      </li>
+      <li class="flex gap-3 md:col-span-2">
+        <span class="shrink-0 h-6 w-6 rounded-lg bg-emerald-400/15 border border-emerald-400/30 grid place-items-center mono text-[11px] text-emerald-300">5</span>
+        <div><p class="text-[14px] text-slate-200">Запусти: <span class="mono text-emerald-300">python bot.py</span></p>
+        <p class="text-[12.5px] text-slate-500 mt-0.5">В логах появится «Бот запущен» и статус бота в чате обсуждения.</p></div>
+      </li>
+    </ol>
+  </section>
+
+  <!-- КОД -->
+  <section class="card rise rounded-2xl overflow-hidden mt-4" style="animation-delay:.4s">
+    <div class="flex flex-wrap items-center gap-2 px-4 sm:px-5 py-3 border-b border-white/10 bg-white/[.03]">
+      <div class="flex gap-1.5 mr-2">
+        <span class="h-2.5 w-2.5 rounded-full bg-red-400/70"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-amber-400/70"></span>
+        <span class="h-2.5 w-2.5 rounded-full bg-emerald-400/70"></span>
+      </div>
+      <button data-tab="bot" class="tab tab-active mono text-[12px] rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 hover:text-white transition">bot.py</button>
+      <button data-tab="req" class="tab mono text-[12px] rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 hover:text-white transition">requirements.txt</button>
+      <button data-tab="env" class="tab mono text-[12px] rounded-lg border border-white/10 px-3 py-1.5 text-slate-400 hover:text-white transition">.env.example</button>
+      <button id="copyBtn" class="ml-auto inline-flex items-center gap-2 rounded-lg border border-white/15 bg-white/[.05] px-3 py-1.5 text-[12px] hover:bg-white/[.1] transition">
+        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+        <span id="copyLabel">Копировать</span>
+      </button>
+    </div>
+    <pre id="code" class="mono text-[12.5px] leading-6 px-4 sm:px-5 py-4 max-h-[520px] overflow-auto text-slate-300 bg-black/40"></pre>
+  </section>
+
+  <!-- FAQ -->
+  <section class="grid md:grid-cols-3 gap-3 mt-4">
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.45s">
+      <h3 class="font-medium text-white text-[15px]">Не приходит приветствие</h3>
+      <p class="mt-2 text-[13px] leading-relaxed text-slate-400">Отключи у бота privacy mode: <span class="mono text-slate-300">/setprivacy → Disable</span> у @BotFather, затем перезапусти бота.</p>
+    </div>
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.5s">
+      <h3 class="font-medium text-white text-[15px]">Сообщение не удаляется</h3>
+      <p class="mt-2 text-[13px] leading-relaxed text-slate-400">Бот должен быть администратором с правом «Удаление сообщений» именно в группе обсуждения.</p>
+    </div>
+    <div class="card rise rounded-2xl p-5" style="animation-delay:.55s">
+      <h3 class="font-medium text-white text-[15px]">Два приветствия подряд</h3>
+      <p class="mt-2 text-[13px] leading-relaxed text-slate-400">Такого не будет: обработчики <span class="mono">chat_member</span> и <span class="mono">new_chat_members</span> защищены дедупликацией по id.</p>
+    </div>
+  </section>
+
+  <footer class="mt-10 text-center">
+    <p class="mono text-[11px] text-slate-600">задача 1 выполнена · дальше можно добавить капчу, правила чата и антиспам</p>
+  </footer>
+</div>
+
+<!-- ИСХОДНИКИ -->
+<script type="text/plain" id="src-req">aiogram>=3.7,<4.0
+python-dotenv>=1.0.0</script>
+
+<script type="text/plain" id="src-env"># Токен от @BotFather
+BOT_TOKEN=123456789:AAExampleTokenReplaceMe
+
+# Канал (короткий id 4339622999 → полный формат с префиксом -100)
+CHANNEL_ID=-1004339622999
+
+# Группа обсуждения канала
+DISCUSSION_CHAT_ID=-1004332798085
+
+# Ссылка на канал для кнопки в /start
+CHANNEL_URL=https://t.me/your_channel
+
+# Время жизни приветствия в группе (секунды)
+GREETING_TTL=10
+
+# Удалять служебные сообщения «вошёл / вышел» (1 = да)
+DELETE_SERVICE_MESSAGE=1</script>
+
+<script type="text/plain" id="src-bot">import asyncio, logging, os, random
+from contextlib import suppress
+
+from aiogram import Bot, Dispatcher, F, Router
+from aiogram.client.default import DefaultBotProperties
+from aiogram.enums import ChatMemberStatus, ChatType, ParseMode
+from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.filters import ChatMemberUpdatedFilter, CommandStart, IS_NOT_MEMBER, IS_MEMBER
+from aiogram.types import (ChatMemberUpdated, InlineKeyboardButton,
+                           InlineKeyboardMarkup, Message, User)
+
+# ───────────── КОНФИГ ─────────────
+BOT_TOKEN          = os.getenv("BOT_TOKEN", "PASTE_YOUR_TOKEN_HERE")
+CHANNEL_ID         = int(os.getenv("CHANNEL_ID", "-1004339622999"))
+DISCUSSION_CHAT_ID = int(os.getenv("DISCUSSION_CHAT_ID", "-1004332798085"))
+CHANNEL_URL        = os.getenv("CHANNEL_URL", "https://t.me/your_channel")
+GREETING_TTL       = int(os.getenv("GREETING_TTL", "10"))
+DELETE_SERVICE_MESSAGE = os.getenv("DELETE_SERVICE_MESSAGE", "1") == "1"
+
+logging.basicConfig(level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(message)s", datefmt="%H:%M:%S")
+log = logging.getLogger("channel-bot")
+router = Router(name="main")
+
+# ───────────── ХЕЛПЕРЫ ─────────────
+def html_escape(t: str) -> str:
+    return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+def full_name(user: User) -> str:
+    name = " ".join(p for p in [user.first_name or "", user.last_name or ""] if p).strip()
+    return name or "Друг"
+
+def mention(user: User) -> str:
+    """Кликабельное упоминание — работает даже без @username."""
+    return f'<a href="tg://user?id={user.id}">{html_escape(full_name(user))}</a>'
+
+def name_card(user: User) -> str:
+    uname = f"@{user.username}" if user.username else "не указан"
+    return (f"├ <b>Имя:</b> {html_escape(user.first_name or '—')}\n"
+            f"├ <b>Фамилия:</b> {html_escape(user.last_name or '—')}\n"
+            f"└ <b>Username:</b> {html_escape(uname)}")
+
+GREETING_TEMPLATES = [
+    "👋 {m}, добро пожаловать в чат обсуждения!",
+    "🎉 {m} с нами! Рады видеть тебя в обсуждении.",
+    "✨ Привет, {m}! Отличное пополнение в нашем чате.",
+    "🚀 {m}, добро пожаловать на борт!",
+    "🔥 Встречаем — {m} присоединился к обсуждению!",
+]
+
+async def delete_later(bot: Bot, chat_id: int, message_id: int, delay: int) -> None:
+    await asyncio.sleep(delay)
+    with suppress(TelegramBadRequest, TelegramForbiddenError):
+        await bot.delete_message(chat_id, message_id)
+
+def schedule_delete(bot, chat_id, message_id, delay=GREETING_TTL):
+    asyncio.create_task(delete_later(bot, chat_id, message_id, delay))
+
+# ───────────── 1. /start В ЛИЧКЕ ─────────────
+@router.message(CommandStart(), F.chat.type == ChatType.PRIVATE)
+async def cmd_start(message: Message) -> None:
+    user = message.from_user
+    text = (f"👋 <b>Привет, {mention(user)}!</b>\n\n"
+            f"Я — бот канала. Помогаю следить за обсуждениями "
+            f"и встречаю новых участников.\n\n"
+            f"<b>Твой профиль</b>\n{name_card(user)}\n\n"
+            f"<b>Что я умею:</b>\n"
+            f"• приветствовать новичков в чате обсуждения;\n"
+            f"• поддерживать порядок и чистоту в ленте;\n"
+            f"• подсказывать, где найти свежие публикации.\n\n"
+            f"Загляни в канал и присоединяйся к разговору 👇")
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📢 Перейти в канал", url=CHANNEL_URL)],
+        [InlineKeyboardButton(text="💬 Чат обсуждения", url=CHANNEL_URL + "?comments=1")],
+    ])
+    await message.answer(text, reply_markup=kb, disable_web_page_preview=True)
+
+# ───────────── 2. НОВИЧКИ В ГРУППЕ ─────────────
+async def greet_new_member(bot: Bot, chat_id: int, user: User) -> None:
+    if user.is_bot:
+        return
+    text = (f"{random.choice(GREETING_TEMPLATES).format(m=mention(user))}\n\n"
+            f"{name_card(user)}\n\n"
+            f"<i>Расскажи пару слов о себе — и приятного общения!</i>\n"
+            f"<i>Это сообщение исчезнет через {GREETING_TTL} сек.</i>")
+    try:
+        sent = await bot.send_message(chat_id, text, disable_web_page_preview=True)
+    except (TelegramBadRequest, TelegramForbiddenError) as e:
+        log.warning("Не удалось отправить приветствие: %s", e); return
+    log.info("Поприветствовали %s (id=%s)", full_name(user), user.id)
+    schedule_delete(bot, chat_id, sent.message_id)   # ← удаление через 10 сек
+
+# Вариант А — событие chat_member (самый надёжный)
+@router.chat_member(F.chat.id == DISCUSSION_CHAT_ID,
+    ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> IS_MEMBER))
+async def on_user_join(event: ChatMemberUpdated, bot: Bot) -> None:
+    await greet_new_member(bot, event.chat.id, event.new_chat_member.user)
+
+# Вариант Б — служебное сообщение (страховка)
+@router.message(F.new_chat_members, F.chat.id == DISCUSSION_CHAT_ID)
+async def on_new_chat_members(message: Message, bot: Bot) -> None:
+    if DELETE_SERVICE_MESSAGE:
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
+            await message.delete()
+    for user in message.new_chat_members:
+        await greet_new_member(bot, message.chat.id, user)
+
+@router.message(F.left_chat_member, F.chat.id == DISCUSSION_CHAT_ID)
+async def on_left_member(message: Message) -> None:
+    if DELETE_SERVICE_MESSAGE:
+        with suppress(TelegramBadRequest, TelegramForbiddenError):
+            await message.delete()
+
+# ───────────── ЗАПУСК ─────────────
+async def on_startup(bot: Bot) -> None:
+    me = await bot.get_me()
+    log.info("Бот запущен: @%s", me.username)
+    with suppress(Exception):
+        member = await bot.get_chat_member(DISCUSSION_CHAT_ID, me.id)
+        if member.status != ChatMemberStatus.ADMINISTRATOR:
+            log.warning("Бот НЕ админ в чате обсуждения — удаление работать не будет!")
+
+async def main() -> None:
+    bot = Bot(token=BOT_TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
+    dp = Dispatcher(); dp.include_router(router); dp.startup.register(on_startup)
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot, allowed_updates=[
+        "message", "edited_message", "chat_member", "my_chat_member"])
+
+if __name__ == "__main__":
+    with suppress(KeyboardInterrupt, SystemExit):
+        asyncio.run(main())</script>
+
+<script>
+/* ---------- Просмотрщик кода ---------- */
+const sources = {
+  bot: document.getElementById('src-bot').textContent,
+  req: document.getElementById('src-req').textContent,
+  env: document.getElementById('src-env').textContent,
+};
+let current = 'bot';
+const codeEl = document.getElementById('code');
+
+function highlight(text){
+  const esc = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return esc(text)
+    .replace(/(#[^\n]*)/g, '<span style="color:#5b6a7d">$1</span>')
+    .replace(/(&quot;|&#39;|"|')(?:(?!\1)[^\n])*\1/g, m => '<span style="color:#a5d6a7">'+m+'</span>')
+    .replace(/\b(async|await|def|class|import|from|return|if|else|elif|for|in|with|try|except|None|True|False|as|not|int|str)\b/g,
+             '<span style="color:#c792ea">$1</span>')
+    .replace(/(@router\.\w+|@\w+)/g, '<span style="color:#ffcb6b">$1</span>');
+}
+function render(){ codeEl.innerHTML = highlight(sources[current]); }
+render();
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('tab-active'));
+    btn.classList.add('tab-active');
+    current = btn.dataset.tab;
+    render();
+    codeEl.scrollTop = 0;
+  });
+});
+
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const label = document.getElementById('copyLabel');
+  try { await navigator.clipboard.writeText(sources[current]); label.textContent = 'Скопировано ✓'; }
+  catch { label.textContent = 'Ошибка'; }
+  setTimeout(() => label.textContent = 'Копировать', 1600);
+});
+
+/* ---------- Демонстрация приветствия ---------- */
+const chat = document.getElementById('chat');
+const demoBtn = document.getElementById('demoBtn');
+const people = [
+  {f:'Алексей', l:'Иванов',   u:'alex_iv'},
+  {f:'Мария',   l:'Петрова',  u:null},
+  {f:'Дмитрий', l:'Соколов',  u:'dm_sokol'},
+  {f:'Анна',    l:'Кузнецова',u:'anna_k'},
+  {f:'Ольга',   l:'',         u:null},
+];
+const templates = [
+  '👋 {m}, добро пожаловать в чат обсуждения!',
+  '🎉 {m} с нами! Рады видеть тебя в обсуждении.',
+  '✨ Привет, {m}! Отличное пополнение в нашем чате.',
+  '🚀 {m}, добро пожаловать на борт!',
+  '🔥 Встречаем — {m} присоединился к обсуждению!',
+];
+
+function demo(){
+  demoBtn.disabled = true;
+  demoBtn.classList.add('opacity-50');
+  const p = people[Math.floor(Math.random()*people.length)];
+  const name = (p.f + ' ' + p.l).trim();
+
+  const sys = document.createElement('p');
+  sys.className = 'mono text-[11px] text-slate-500 text-center mt-3';
+  sys.textContent = name + ' присоединился(ась) к группе';
+  chat.appendChild(sys);
+  chat.scrollTop = chat.scrollHeight;
+
+  setTimeout(() => {
+    sys.classList.add('fade-out');
+    setTimeout(() => sys.remove(), 600);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'mt-3 flex gap-2';
+    wrap.innerHTML =
+      '<div class="shrink-0 h-8 w-8 rounded-full bg-gradient-to-br from-sky-400 to-indigo-500 grid place-items-center text-[12px] font-semibold text-white">B</div>' +
+      '<div class="tg-bubble px-3.5 py-2.5 max-w-[82%] text-[13.5px] leading-relaxed">' +
+        '<p class="text-[11px] font-semibold text-sky-300 mb-1">Channel Bot</p>' +
+        '<p>' + templates[Math.floor(Math.random()*templates.length)]
+                 .replace('{m}','<a href="#" class="text-sky-400 hover:underline">'+name+'</a>') + '</p>' +
+        '<p class="mt-2 text-slate-300">├ <b>Имя:</b> '+p.f+'<br>' +
+        '├ <b>Фамилия:</b> '+(p.l||'—')+'<br>' +
+        '└ <b>Username:</b> '+(p.u?'@'+p.u:'не указан')+'</p>' +
+        '<p class="mt-2 italic text-slate-400">Расскажи пару слов о себе — и приятного общения!</p>' +
+        '<p class="italic text-slate-500 text-[12px]">Это сообщение исчезнет через <span class="ttl">10</span> сек.</p>' +
+      '</div>';
+    chat.appendChild(wrap);
+    chat.scrollTop = chat.scrollHeight;
+
+    let left = 10;
+    const ttl = wrap.querySelector('.ttl');
+    const iv = setInterval(() => {
+      left--;
+      if (ttl) ttl.textContent = left;
+      if (left <= 0) {
+        clearInterval(iv);
+        wrap.classList.add('fade-out');
+        setTimeout(() => {
+          wrap.remove();
+          const note = document.createElement('p');
+          note.className = 'mono text-[11px] text-emerald-400/80 text-center mt-2';
+          note.textContent = '✓ приветствие удалено ботом';
+          chat.appendChild(note);
+          chat.scrollTop = chat.scrollHeight;
+          demoBtn.disabled = false;
+          demoBtn.classList.remove('opacity-50');
+        }, 600);
+      }
+    }, 1000);
+  }, 700);
+}
+demoBtn.addEventListener('click', demo);
+setTimeout(demo, 900);
+</script>
+</body>
+</html>
