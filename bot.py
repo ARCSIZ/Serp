@@ -5,6 +5,7 @@ Telegram-бот для канала и группы обсуждения.
   1. /start в личке — красивое приветствие пользователя.
   2. Приветствие новых участников в группе обсуждения канала
      (упоминание по имени/фамилии + авто-удаление через 10 секунд).
+  3. Первый комментарий с правилами и rules.png под каждым постом канала.
 
 Стек: Python 3.10+, aiogram 3.x
 Запуск: python bot.py
@@ -16,15 +17,20 @@ import asyncio
 import logging
 import os
 import random
+import struct
+import zlib
 from contextlib import suppress
+from pathlib import Path
 
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatMemberStatus, ChatType, ParseMode
-from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
+from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
 from aiogram.filters import ChatMemberUpdatedFilter, CommandStart, IS_NOT_MEMBER, IS_MEMBER
 from aiogram.types import (
+    BufferedInputFile,
     ChatMemberUpdated,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
@@ -55,6 +61,22 @@ GREETING_TTL = int(os.getenv("GREETING_TTL", "10"))
 # Удалять ли системное сообщение «X присоединился к группе».
 DELETE_SERVICE_MESSAGE = os.getenv("DELETE_SERVICE_MESSAGE", "1") == "1"
 
+# Изображение и включение правил под публикациями канала.
+RULES_ENABLED = os.getenv("RULES_ENABLED", "1") == "1"
+RULES_IMAGE_PATH = Path(__file__).parent / Path(
+    os.getenv("RULES_IMAGE", "rules.png")
+).name
+
+RULES_TEXT = (
+    "<b>Правила обсуждения</b>\n\n"
+    "1. Общайтесь уважительно, без оскорблений и провокаций.\n"
+    "2. Обсуждайте публикацию и придерживайтесь темы.\n"
+    "3. Не размещайте спам, рекламу и подозрительные ссылки.\n"
+    "4. Не публикуйте чужие персональные данные.\n"
+    "5. Запрещены незаконные материалы и любой вредоносный контент.\n\n"
+    "Нарушения могут привести к удалению сообщений или блокировке."
+)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
@@ -63,6 +85,119 @@ logging.basicConfig(
 log = logging.getLogger("channel-bot")
 
 router = Router(name="main")
+
+
+# ──────────────────────────────────────────────────────────────
+#  ИЗОБРАЖЕНИЕ ПРАВИЛ
+# ──────────────────────────────────────────────────────────────
+
+_generated_rules_png: bytes | None = None
+
+
+def _png_chunk(chunk_type: bytes, data: bytes) -> bytes:
+    checksum = zlib.crc32(chunk_type + data) & 0xFFFFFFFF
+    return struct.pack(">I", len(data)) + chunk_type + data + struct.pack(">I", checksum)
+
+
+def build_default_rules_png() -> bytes:
+    """Создаёт PNG-заглушку без внешних библиотек, если rules.png не загружен."""
+    global _generated_rules_png
+    if _generated_rules_png is not None:
+        return _generated_rules_png
+
+    width, height = 1200, 630
+    pixels = bytearray(width * height * 3)
+
+    # Тёмный градиент с двумя мягкими цветовыми акцентами.
+    for y in range(height):
+        for x in range(width):
+            blue_glow = max(0.0, 1.0 - ((x - 980) ** 2 / 420000 + (y - 80) ** 2 / 150000))
+            green_glow = max(0.0, 1.0 - ((x - 160) ** 2 / 360000 + (y - 600) ** 2 / 180000))
+            grid = 5 if x % 60 == 0 or y % 60 == 0 else 0
+            offset = (y * width + x) * 3
+            pixels[offset] = min(255, 7 + int(20 * blue_glow) + grid)
+            pixels[offset + 1] = min(255, 10 + int(40 * green_glow) + int(18 * blue_glow) + grid)
+            pixels[offset + 2] = min(255, 18 + int(58 * blue_glow) + int(25 * green_glow) + grid)
+
+    def rect(x0: int, y0: int, x1: int, y1: int, color: tuple[int, int, int]) -> None:
+        for py in range(max(0, y0), min(height, y1)):
+            row = (py * width + max(0, x0)) * 3
+            for _ in range(max(0, x0), min(width, x1)):
+                pixels[row : row + 3] = bytes(color)
+                row += 3
+
+    glyphs = {
+        "A": ("01110", "10001", "10001", "11111", "10001", "10001", "10001"),
+        "C": ("01111", "10000", "10000", "10000", "10000", "10000", "01111"),
+        "E": ("11111", "10000", "10000", "11110", "10000", "10000", "11111"),
+        "H": ("10001", "10001", "10001", "11111", "10001", "10001", "10001"),
+        "L": ("10000", "10000", "10000", "10000", "10000", "10000", "11111"),
+        "R": ("11110", "10001", "10001", "11110", "10100", "10010", "10001"),
+        "S": ("01111", "10000", "10000", "01110", "00001", "00001", "11110"),
+        "T": ("11111", "00100", "00100", "00100", "00100", "00100", "00100"),
+        "U": ("10001", "10001", "10001", "10001", "10001", "10001", "01110"),
+    }
+
+    def draw_text(text: str, x: int, y: int, scale: int) -> None:
+        cursor = x
+        for char in text:
+            if char == " ":
+                cursor += scale * 4
+                continue
+            for row, pattern in enumerate(glyphs[char]):
+                for col, value in enumerate(pattern):
+                    if value == "1":
+                        rect(
+                            cursor + col * scale,
+                            y + row * scale,
+                            cursor + (col + 1) * scale - 2,
+                            y + (row + 1) * scale - 2,
+                            (236, 242, 250),
+                        )
+            cursor += scale * 6
+
+    title = "CHAT RULES"
+    scale = 18
+    title_width = (len(title.replace(" ", "")) * 6 + 4) * scale
+    draw_text(title, (width - title_width) // 2, 190, scale)
+    rect(310, 360, 890, 366, (52, 211, 153))
+    rect(390, 410, 810, 418, (50, 80, 110))
+    rect(450, 448, 750, 456, (38, 62, 87))
+
+    raw = bytearray()
+    row_size = width * 3
+    for y in range(height):
+        raw.append(0)
+        start = y * row_size
+        raw.extend(pixels[start : start + row_size])
+
+    signature = b"\x89PNG\r\n\x1a\n"
+    header = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    _generated_rules_png = (
+        signature
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", zlib.compress(bytes(raw), 9))
+        + _png_chunk(b"IEND", b"")
+    )
+    return _generated_rules_png
+
+
+def ensure_rules_image() -> None:
+    """Создаёт rules.png в корне, но никогда не перезаписывает пользовательский файл."""
+    if RULES_IMAGE_PATH.is_file() and RULES_IMAGE_PATH.stat().st_size > 0:
+        return
+    try:
+        RULES_IMAGE_PATH.write_bytes(build_default_rules_png())
+        log.info("Создано стандартное изображение %s", RULES_IMAGE_PATH.name)
+    except OSError as error:
+        # При read-only ФС изображение всё равно отправится напрямую из памяти.
+        log.warning("Не удалось записать %s: %s", RULES_IMAGE_PATH.name, error)
+
+
+def rules_photo() -> FSInputFile | BufferedInputFile:
+    if RULES_IMAGE_PATH.is_file() and RULES_IMAGE_PATH.stat().st_size > 0:
+        return FSInputFile(RULES_IMAGE_PATH, filename="rules.png")
+    return BufferedInputFile(build_default_rules_png(), filename="rules.png")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -233,6 +368,58 @@ async def on_left_member(message: Message) -> None:
 
 
 # ──────────────────────────────────────────────────────────────
+#  3. ПРАВИЛА ПОД КАЖДЫМ ПОСТОМ КАНАЛА
+# ──────────────────────────────────────────────────────────────
+
+# Для альбома Telegram присылает несколько сообщений с одним media_group_id.
+# Ключ запоминается на сутки, чтобы правила появились только один раз.
+_processed_channel_posts: set[str] = set()
+
+
+async def _forget_channel_post(key: str, delay: int = 86400) -> None:
+    await asyncio.sleep(delay)
+    _processed_channel_posts.discard(key)
+
+
+@router.message(
+    F.chat.id == DISCUSSION_CHAT_ID,
+    F.is_automatic_forward == True,
+    F.sender_chat.id == CHANNEL_ID,
+)
+async def send_rules_under_channel_post(message: Message) -> None:
+    """Отвечает на автопересланный пост, создавая первый комментарий с правилами."""
+    if not RULES_ENABLED:
+        return
+
+    post_key = message.media_group_id or f"message:{message.message_id}"
+    if post_key in _processed_channel_posts:
+        return
+
+    _processed_channel_posts.add(post_key)
+    asyncio.create_task(_forget_channel_post(post_key))
+
+    try:
+        sent = await message.reply_photo(
+            photo=rules_photo(),
+            caption=RULES_TEXT,
+        )
+    except TelegramAPIError as error:
+        _processed_channel_posts.discard(post_key)
+        log.warning(
+            "Не удалось отправить правила под постом %s: %s",
+            message.message_id,
+            error,
+        )
+        return
+
+    log.info(
+        "Правила отправлены первым комментарием: пост=%s, комментарий=%s",
+        message.message_id,
+        sent.message_id,
+    )
+
+
+# ──────────────────────────────────────────────────────────────
 #  ЗАПУСК
 # ──────────────────────────────────────────────────────────────
 
@@ -254,6 +441,8 @@ async def on_startup(bot: Bot) -> None:
 async def main() -> None:
     if BOT_TOKEN.startswith("PASTE"):
         raise SystemExit("❌ Укажите BOT_TOKEN в переменных окружения или в .env")
+
+    ensure_rules_image()
 
     bot = Bot(
         token=BOT_TOKEN,
