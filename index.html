@@ -3,84 +3,615 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>serp.bothost.tech</title>
+<title>serp.bothost.tech · статистика канала</title>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <style>
   :root{color-scheme:dark}
   *{box-sizing:border-box}
-  html,body{height:100%;margin:0}
+  html,body{margin:0;min-height:100%}
   body{
     background:#07080c;color:#cbd5e1;
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
-    display:grid;place-items:center;-webkit-font-smoothing:antialiased;
+    -webkit-font-smoothing:antialiased;
   }
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,monospace}
+
   .bg{
-    position:fixed;inset:0;z-index:-1;
+    position:fixed;inset:0;z-index:-2;
     background-image:linear-gradient(to right,rgba(255,255,255,.04) 1px,transparent 1px),
                      linear-gradient(to bottom,rgba(255,255,255,.04) 1px,transparent 1px);
     background-size:44px 44px;
-    mask-image:radial-gradient(ellipse 70% 60% at 50% 45%,#000 35%,transparent 100%);
-    -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 45%,#000 35%,transparent 100%);
+    mask-image:radial-gradient(ellipse 85% 55% at 50% 0%,#000 30%,transparent 100%);
+    -webkit-mask-image:radial-gradient(ellipse 85% 55% at 50% 0%,#000 30%,transparent 100%);
   }
   .glow{
-    position:fixed;inset:0;z-index:-1;
-    background:radial-gradient(500px 300px at 50% 30%,rgba(56,189,248,.16),transparent 65%);
+    position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:radial-gradient(680px 380px at 12% 0%,rgba(56,189,248,.16),transparent 62%),
+               radial-gradient(560px 320px at 88% 6%,rgba(168,85,247,.13),transparent 62%),
+               radial-gradient(760px 420px at 50% 100%,rgba(34,197,94,.08),transparent 62%);
+    animation:drift 22s ease-in-out infinite alternate;
   }
-  .box{
-    width:min(92vw,440px);padding:32px;border-radius:18px;
-    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02));
+  @keyframes drift{from{transform:translate3d(-1.2%,-.8%,0)}to{transform:translate3d(1.2%,1.2%,0)}}
+
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.018));
     border:1px solid rgba(255,255,255,.09);
-    box-shadow:0 30px 80px -40px rgba(0,0,0,.9);
-    backdrop-filter:blur(14px);text-align:center;
+    border-radius:18px;
+    box-shadow:0 30px 80px -45px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.05);
+    backdrop-filter:blur(14px);
   }
-  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;margin-right:8px;
+  .rise{opacity:0;transform:translateY(12px);animation:rise .55s cubic-bezier(.2,.7,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#34d399;
        box-shadow:0 0 0 0 rgba(52,211,153,.6);animation:pulse 2.2s infinite}
   @keyframes pulse{70%{box-shadow:0 0 0 10px rgba(52,211,153,0)}100%{box-shadow:0 0 0 0 rgba(52,211,153,0)}}
-  h1{margin:14px 0 6px;font-size:20px;font-weight:600;color:#fff;letter-spacing:-.01em}
-  p{margin:0;font-size:13.5px;line-height:1.6;color:#94a3b8}
-  .row{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;
-       padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.03);
-       border:1px solid rgba(255,255,255,.06);margin-top:8px}
-  .row span:last-child{color:#e2e8f0}
-  .grid{margin-top:20px;text-align:left}
-  .tag{display:inline-block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
-       color:#6ee7b7;border:1px solid rgba(52,211,153,.25);background:rgba(52,211,153,.08);
-       border-radius:999px;padding:4px 11px}
-  footer{margin-top:20px;font-size:11px;color:#475569}
+
+  .seg{border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);border-radius:10px;overflow:hidden}
+  .seg button{padding:6px 13px;font-size:12.5px;color:#94a3b8;background:transparent;border:0;cursor:pointer;transition:.18s}
+  .seg button:hover{color:#e2e8f0}
+  .seg button.on{background:rgba(255,255,255,.1);color:#fff}
+
+  .kpi-val{font-size:26px;font-weight:600;color:#fff;letter-spacing:-.02em;line-height:1.1}
+  .up{color:#34d399}.down{color:#f87171}.flat{color:#64748b}
+
+  table{width:100%;border-collapse:collapse}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:#64748b;text-align:left;
+     font-weight:500;padding:0 10px 10px}
+  td{padding:10px;font-size:13px;border-top:1px solid rgba(255,255,255,.06)}
+  tbody tr{transition:background .15s}
+  tbody tr:hover{background:rgba(255,255,255,.03)}
+
+  .avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;
+          font-size:11.5px;font-weight:600;color:#0b1220;flex:none}
+
+  .chip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid rgba(255,255,255,.1);
+        background:rgba(255,255,255,.04);color:#94a3b8}
+
+  .scroll::-webkit-scrollbar{width:8px;height:8px}
+  .scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:8px}
+  .scroll::-webkit-scrollbar-track{background:transparent}
+
+  .skel{background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.12),rgba(255,255,255,.05));
+        background-size:200% 100%;animation:shimmer 1.4s infinite;border-radius:6px;color:transparent!important}
+  @keyframes shimmer{to{background-position:-200% 0}}
+
+  ::selection{background:rgba(56,189,248,.32)}
+  a{color:inherit;text-decoration:none}
 </style>
 </head>
 <body>
 <div class="bg"></div><div class="glow"></div>
 
-<main class="box">
-  <span class="tag"><span class="dot"></span>server online</span>
-  <h1>Веб-интерфейс подключён</h1>
-  <p>Пустая заготовка. Здесь появятся админка, статистика и mini app.</p>
+<div class="max-w-[1240px] mx-auto px-4 sm:px-6 py-8 sm:py-10">
 
-  <div class="grid">
-    <div class="row"><span>Домен</span><span class="mono">serp.bothost.tech</span></div>
-    <div class="row"><span>Порт</span><span class="mono">3000</span></div>
-    <div class="row"><span>Аптайм</span><span class="mono" id="up">—</span></div>
-    <div class="row"><span>Бот</span><span class="mono" id="bot">—</span></div>
-  </div>
+  <!-- ШАПКА -->
+  <header class="rise flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <div class="flex items-center gap-2.5 mb-2">
+        <span class="dot"></span>
+        <span class="mono text-[11px] uppercase tracking-[.18em] text-emerald-300">live dashboard</span>
+        <span class="chip mono" id="botName">—</span>
+      </div>
+      <h1 class="text-[26px] sm:text-[32px] font-semibold tracking-tight text-white leading-tight">
+        Статистика канала
+      </h1>
+      <p class="text-[13px] text-slate-500 mt-1" id="subtitle">serp.bothost.tech · обновление каждые 15 секунд</p>
+    </div>
 
-  <footer class="mono">GET /health · GET /api/status</footer>
-</main>
+    <div class="flex items-center gap-2.5">
+      <div class="seg flex" id="periodSeg">
+        <button data-days="7">7 дней</button>
+        <button data-days="30" class="on">30 дней</button>
+        <button data-days="90">90 дней</button>
+      </div>
+      <button id="refreshBtn" class="card !rounded-xl px-3 py-2 text-[12.5px] hover:bg-white/[.07] transition flex items-center gap-2">
+        <svg id="refreshIcon" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>
+        </svg>
+        Обновить
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI -->
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <div class="card rise p-4" style="animation-delay:.04s">
+      <div class="flex items-start justify-between">
+        <span class="text-[12px] text-slate-400">Подписчики канала</span><span class="text-[15px]">📢</span>
+      </div>
+      <div class="kpi-val mt-2" id="kSubs">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500" id="kSubsSub">канал</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.08s">
+      <div class="flex items-start justify-between">
+        <span class="text-[12px] text-slate-400">Участники чата</span><span class="text-[15px]">💬</span>
+      </div>
+      <div class="kpi-val mt-2" id="kChat">—</div>
+      <div class="text-[11.5px] mt-1" id="kChatSub">обсуждение</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.12s">
+      <div class="flex items-start justify-between">
+        <span class="text-[12px] text-slate-400">Публикации</span><span class="text-[15px]">📝</span>
+      </div>
+      <div class="kpi-val mt-2" id="kPosts">—</div>
+      <div class="text-[11.5px] mt-1" id="kPostsSub">за 7 дней</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.16s">
+      <div class="flex items-start justify-between">
+        <span class="text-[12px] text-slate-400">Комментарии</span><span class="text-[15px]">🗨️</span>
+      </div>
+      <div class="kpi-val mt-2" id="kComments">—</div>
+      <div class="text-[11.5px] mt-1" id="kCommentsSub">за 7 дней</div>
+    </div>
+  </section>
+
+  <section class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+    <div class="card rise p-4" style="animation-delay:.2s">
+      <div class="text-[12px] text-slate-400">Новых участников</div>
+      <div class="kpi-val mt-2" id="kJoins">—</div>
+      <div class="text-[11.5px] mt-1" id="kJoinsSub">за 7 дней</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.24s">
+      <div class="text-[12px] text-slate-400">Вышло участников</div>
+      <div class="kpi-val mt-2" id="kLeaves">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">удержание <span id="kRet" class="text-slate-300">—</span></div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.28s">
+      <div class="text-[12px] text-slate-400">Комментариев на пост</div>
+      <div class="kpi-val mt-2" id="kAvg">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">средняя вовлечённость</div>
+    </div>
+    <div class="card rise p-4" style="animation-delay:.32s">
+      <div class="text-[12px] text-slate-400">Реакции на посты</div>
+      <div class="kpi-val mt-2" id="kReactions">—</div>
+      <div class="text-[11.5px] mt-1 text-slate-500">всего отслежено</div>
+    </div>
+  </section>
+
+  <!-- ГРАФИК ДИНАМИКИ -->
+  <section class="card rise p-5 mb-3" style="animation-delay:.36s">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h2 class="text-white font-medium">Динамика активности</h2>
+        <p class="text-[12px] text-slate-500 mt-0.5">публикации, комментарии и новые участники по дням</p>
+      </div>
+      <div class="flex items-center gap-3 text-[12px]">
+        <button class="lg-toggle flex items-center gap-1.5 on" data-key="comments">
+          <span class="h-2 w-2 rounded-full" style="background:#38bdf8"></span>Комментарии
+        </button>
+        <button class="lg-toggle flex items-center gap-1.5 on" data-key="joins">
+          <span class="h-2 w-2 rounded-full" style="background:#34d399"></span>Входы
+        </button>
+        <button class="lg-toggle flex items-center gap-1.5 on" data-key="posts">
+          <span class="h-2 w-2 rounded-full" style="background:#c084fc"></span>Посты
+        </button>
+      </div>
+    </div>
+    <div id="lineChart" class="w-full overflow-hidden"></div>
+  </section>
+
+  <!-- АКТИВНОСТЬ ПО ЧАСАМ + ТИПЫ ПОСТОВ -->
+  <section class="grid lg:grid-cols-3 gap-3 mb-3">
+    <div class="card rise p-5 lg:col-span-2" style="animation-delay:.4s">
+      <h2 class="text-white font-medium">Активность по часам</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5 mb-4">когда в чате обсуждения пишут чаще всего</p>
+      <div id="hourChart"></div>
+    </div>
+    <div class="card rise p-5" style="animation-delay:.44s">
+      <h2 class="text-white font-medium">Форматы публикаций</h2>
+      <p class="text-[12px] text-slate-500 mt-0.5 mb-2">распределение по типам контента</p>
+      <div class="flex items-center gap-4">
+        <div id="donut" class="flex-none"></div>
+        <div id="donutLegend" class="flex-1 space-y-1.5 text-[12.5px]"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ТЕПЛОВАЯ КАРТА -->
+  <section class="card rise p-5 mb-3" style="animation-delay:.48s">
+    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+      <div>
+        <h2 class="text-white font-medium">Тепловая карта недели</h2>
+        <p class="text-[12px] text-slate-500 mt-0.5">день недели × час · плотность комментариев</p>
+      </div>
+      <div class="flex items-center gap-2 text-[11px] text-slate-500">
+        меньше
+        <span class="flex gap-1">
+          <i class="h-3 w-3 rounded-[3px] block" style="background:rgba(56,189,248,.10)"></i>
+          <i class="h-3 w-3 rounded-[3px] block" style="background:rgba(56,189,248,.32)"></i>
+          <i class="h-3 w-3 rounded-[3px] block" style="background:rgba(56,189,248,.58)"></i>
+          <i class="h-3 w-3 rounded-[3px] block" style="background:rgba(56,189,248,.85)"></i>
+        </span>
+        больше
+      </div>
+    </div>
+    <div id="heatmap" class="overflow-x-auto scroll"></div>
+  </section>
+
+  <!-- ТАБЛИЦЫ -->
+  <section class="grid lg:grid-cols-2 gap-3 mb-3">
+    <div class="card rise p-5" style="animation-delay:.52s">
+      <h2 class="text-white font-medium mb-1">Топ публикаций</h2>
+      <p class="text-[12px] text-slate-500 mb-3">по числу комментариев в обсуждении</p>
+      <div class="overflow-x-auto scroll">
+        <table>
+          <thead><tr><th>Пост</th><th>Тип</th><th class="text-right">💬</th><th class="text-right">❤️</th></tr></thead>
+          <tbody id="topPosts"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card rise p-5" style="animation-delay:.56s">
+      <h2 class="text-white font-medium mb-1">Самые активные участники</h2>
+      <p class="text-[12px] text-slate-500 mb-3">по количеству сообщений в чате</p>
+      <div class="overflow-x-auto scroll">
+        <table>
+          <thead><tr><th>Участник</th><th>Статус</th><th class="text-right">Сообщений</th></tr></thead>
+          <tbody id="topMembers"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ЛЕНТА СОБЫТИЙ + СИСТЕМА -->
+  <section class="grid lg:grid-cols-3 gap-3">
+    <div class="card rise p-5 lg:col-span-2" style="animation-delay:.6s">
+      <h2 class="text-white font-medium mb-1">Лента событий</h2>
+      <p class="text-[12px] text-slate-500 mb-3">последние действия в канале и чате</p>
+      <div id="feed" class="space-y-1.5 max-h-[300px] overflow-y-auto scroll pr-1"></div>
+    </div>
+
+    <div class="card rise p-5" style="animation-delay:.64s">
+      <h2 class="text-white font-medium mb-3">Система</h2>
+      <div class="space-y-2 text-[12.5px]" id="sysRows"></div>
+      <div class="mt-4 pt-4 border-t border-white/[.07]">
+        <h3 class="text-[12px] text-slate-400 mb-2">Работа бота</h3>
+        <div class="space-y-2 text-[12.5px]" id="botRows"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="mt-8 text-center">
+    <p class="mono text-[11px] text-slate-600">
+      данные обновлены <span id="updatedAt">—</span> · сбор статистики с <span id="since">—</span>
+    </p>
+  </footer>
+</div>
 
 <script>
-async function tick(){
-  try{
-    const r = await fetch('/api/status'); const d = await r.json();
-    const s = Math.floor(d.uptime_sec || 0);
-    const h = String(Math.floor(s/3600)).padStart(2,'0');
-    const m = String(Math.floor(s%3600/60)).padStart(2,'0');
-    const sec = String(s%60).padStart(2,'0');
-    document.getElementById('up').textContent = h+':'+m+':'+sec;
-    document.getElementById('bot').textContent = d.bot || '—';
-  }catch(e){ document.getElementById('up').textContent = 'offline'; }
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const COLORS = {comments:'#38bdf8', joins:'#34d399', posts:'#c084fc', leaves:'#f87171'};
+const TYPE_COLORS = {text:'#38bdf8', photo:'#34d399', video:'#c084fc', album:'#fbbf24',
+                     gif:'#f472b6', file:'#94a3b8', audio:'#22d3ee', poll:'#fb923c'};
+const TYPE_NAMES = {text:'Текст', photo:'Фото', video:'Видео', album:'Альбом',
+                    gif:'GIF', file:'Файл', audio:'Аудио', poll:'Опрос'};
+const KIND_ICON = {post:'📝', comment:'🗨️', join:'👋', leave:'🚪',
+                   greeting:'✨', rules:'📌', reaction:'❤️', start:'▶️'};
+const KIND_TEXT = {post:'Новая публикация', comment:'Комментарий', join:'Вступил в чат',
+                   leave:'Покинул чат', greeting:'Отправлено приветствие',
+                   rules:'Правила под постом', reaction:'Реакции обновлены', start:'Запуск бота в личке'};
+
+let state = {days:30, series:{comments:true, joins:true, posts:true}, data:null};
+
+const nf = n => (n === null || n === undefined) ? '—' : new Intl.NumberFormat('ru-RU').format(n);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function timeAgo(ts){
+  const d = Math.floor(Date.now()/1000) - ts;
+  if (d < 60) return 'только что';
+  if (d < 3600) return Math.floor(d/60) + ' мин назад';
+  if (d < 86400) return Math.floor(d/3600) + ' ч назад';
+  return Math.floor(d/86400) + ' дн назад';
 }
-tick(); setInterval(tick, 1000);
+function fmtDate(ts){
+  return new Date(ts*1000).toLocaleDateString('ru-RU',{day:'2-digit',month:'short'});
+}
+function trendHTML(v){
+  if (v > 0)  return `<span class="up">▲ ${v}%</span> <span class="text-slate-600">к прошлой неделе</span>`;
+  if (v < 0)  return `<span class="down">▼ ${Math.abs(v)}%</span> <span class="text-slate-600">к прошлой неделе</span>`;
+  return `<span class="flat">— без изменений</span>`;
+}
+function initials(name){
+  return (name||'?').trim().split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase() || '?';
+}
+function hue(id){
+  const palette = [['#38bdf8','#6366f1'],['#34d399','#059669'],['#c084fc','#7c3aed'],
+                   ['#fbbf24','#f59e0b'],['#f472b6','#db2777'],['#22d3ee','#0891b2']];
+  return palette[Math.abs(id) % palette.length];
+}
+
+/* ─────────── ГРАФИК ДИНАМИКИ ─────────── */
+function drawLine(data){
+  const host = $('lineChart');
+  const W = Math.max(host.clientWidth || 900, 320), H = 260;
+  const pad = {t:14, r:14, b:26, l:38};
+  const keys = Object.keys(state.series).filter(k => state.series[k]);
+  const max = Math.max(1, ...data.flatMap(d => keys.map(k => d[k])));
+  const iw = W - pad.l - pad.r, ih = H - pad.t - pad.b;
+  const X = i => pad.l + (data.length <= 1 ? iw/2 : i * iw/(data.length-1));
+  const Y = v => pad.t + ih - (v/max) * ih;
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none">
+    <defs>${keys.map(k=>`
+      <linearGradient id="g-${k}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${COLORS[k]}" stop-opacity=".28"/>
+        <stop offset="100%" stop-color="${COLORS[k]}" stop-opacity="0"/>
+      </linearGradient>`).join('')}
+    </defs>`;
+
+  for (let i = 0; i <= 4; i++){
+    const y = pad.t + ih*i/4, val = Math.round(max*(1-i/4));
+    svg += `<line x1="${pad.l}" y1="${y}" x2="${W-pad.r}" y2="${y}" stroke="rgba(255,255,255,.055)"/>
+            <text x="${pad.l-8}" y="${y+4}" fill="#475569" font-size="10" text-anchor="end">${val}</text>`;
+  }
+
+  keys.forEach(k => {
+    const pts = data.map((d,i) => [X(i), Y(d[k])]);
+    const line = pts.map((p,i) => (i?'L':'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+    const area = line + ` L${X(data.length-1)} ${pad.t+ih} L${X(0)} ${pad.t+ih} Z`;
+    svg += `<path d="${area}" fill="url(#g-${k})"/>
+            <path d="${line}" fill="none" stroke="${COLORS[k]}" stroke-width="2"
+                  stroke-linejoin="round" stroke-linecap="round"/>`;
+    const last = pts[pts.length-1];
+    if (last) svg += `<circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="${COLORS[k]}"/>`;
+  });
+
+  const step = Math.max(1, Math.ceil(data.length/8));
+  data.forEach((d,i) => {
+    if (i % step && i !== data.length-1) return;
+    const label = d.day.slice(8) + '.' + d.day.slice(5,7);
+    svg += `<text x="${X(i)}" y="${H-8}" fill="#475569" font-size="10" text-anchor="middle">${label}</text>`;
+  });
+
+  host.innerHTML = svg + '</svg>';
+}
+
+/* ─────────── ЧАСЫ ─────────── */
+function drawHours(hourly){
+  const host = $('hourChart');
+  const W = Math.max(host.clientWidth || 700, 320), H = 190, pad = {t:10,b:22,l:8,r:8};
+  const max = Math.max(1, ...hourly);
+  const bw = (W - pad.l - pad.r) / 24;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}">
+    <defs><linearGradient id="barG" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#6366f1" stop-opacity=".55"/>
+    </linearGradient></defs>`;
+  hourly.forEach((v,h) => {
+    const ih = H - pad.t - pad.b;
+    const bh = Math.max(v ? 3 : 1, (v/max)*ih);
+    const x = pad.l + h*bw + bw*0.18, y = H - pad.b - bh, w = bw*0.64;
+    svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${bh.toFixed(1)}"
+             rx="3" fill="${v ? 'url(#barG)' : 'rgba(255,255,255,.06)'}"><title>${h}:00 — ${v}</title></rect>`;
+    if (h % 3 === 0)
+      svg += `<text x="${(pad.l+h*bw+bw/2).toFixed(1)}" y="${H-6}" fill="#475569" font-size="10" text-anchor="middle">${h}</text>`;
+  });
+  host.innerHTML = svg + '</svg>';
+}
+
+/* ─────────── ДОНАТ ─────────── */
+function drawDonut(types){
+  const size = 132, r = 52, cx = size/2, cy = size/2, sw = 16;
+  const total = types.reduce((s,t)=>s+t.count,0);
+  let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">`;
+  if (!total){
+    svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="${sw}"/>`;
+  } else {
+    let acc = 0;
+    const C = 2*Math.PI*r;
+    types.forEach(t => {
+      const frac = t.count/total, len = frac*C;
+      svg += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+               stroke="${TYPE_COLORS[t.kind]||'#64748b'}" stroke-width="${sw}"
+               stroke-dasharray="${len.toFixed(2)} ${(C-len).toFixed(2)}"
+               stroke-dashoffset="${(-acc*C).toFixed(2)}"
+               transform="rotate(-90 ${cx} ${cy})" stroke-linecap="butt"><title>${TYPE_NAMES[t.kind]||t.kind}: ${t.count}</title></circle>`;
+      acc += frac;
+    });
+  }
+  svg += `<text x="${cx}" y="${cy-2}" fill="#fff" font-size="20" font-weight="600" text-anchor="middle">${total}</text>
+          <text x="${cx}" y="${cy+15}" fill="#64748b" font-size="10" text-anchor="middle">постов</text></svg>`;
+  $('donut').innerHTML = svg;
+
+  $('donutLegend').innerHTML = total
+    ? types.map(t => `<div class="flex items-center justify-between gap-2">
+        <span class="flex items-center gap-2 text-slate-300">
+          <i class="h-2.5 w-2.5 rounded-full block" style="background:${TYPE_COLORS[t.kind]||'#64748b'}"></i>
+          ${TYPE_NAMES[t.kind]||esc(t.kind)}
+        </span>
+        <span class="mono text-slate-400">${t.count} · ${Math.round(t.count/total*100)}%</span>
+      </div>`).join('')
+    : `<p class="text-[12.5px] text-slate-500">Публикаций пока нет. Как только в канале выйдет пост, он появится здесь.</p>`;
+}
+
+/* ─────────── ТЕПЛОВАЯ КАРТА ─────────── */
+function drawHeat(heat){
+  const days = ['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  const order = [1,2,3,4,5,6,0];
+  const max = Math.max(1, ...heat.flat());
+  let html = '<div class="min-w-[620px]">';
+  html += '<div class="flex gap-[3px] pl-[34px] mb-1">' +
+          Array.from({length:24},(_,h)=>`<div class="flex-1 text-center text-[9px] text-slate-600">${h%3===0?h:''}</div>`).join('') +
+          '</div>';
+  order.forEach(d => {
+    html += `<div class="flex items-center gap-[3px] mb-[3px]">
+      <div class="w-[31px] text-[10.5px] text-slate-500">${days[d]}</div>`;
+    for (let h=0; h<24; h++){
+      const v = heat[d][h], a = v ? .12 + (v/max)*.78 : 0;
+      html += `<div class="flex-1 h-[17px] rounded-[3px]" title="${days[d]} ${h}:00 — ${v}"
+        style="background:${v ? `rgba(56,189,248,${a.toFixed(2)})` : 'rgba(255,255,255,.035)'}"></div>`;
+    }
+    html += '</div>';
+  });
+  $('heatmap').innerHTML = html + '</div>';
+}
+
+/* ─────────── ТАБЛИЦЫ И ЛЕНТА ─────────── */
+function renderPosts(posts){
+  if (!posts.length){
+    $('topPosts').innerHTML = `<tr><td colspan="4" class="text-slate-500 text-[12.5px] py-5">
+      Публикаций пока не зафиксировано.</td></tr>`;
+    return;
+  }
+  $('topPosts').innerHTML = posts.map(p => `
+    <tr>
+      <td>
+        <a ${p.url?`href="${p.url}" target="_blank" rel="noopener"`:''} class="block max-w-[240px]">
+          <span class="text-slate-200 hover:text-sky-300 transition line-clamp-1">${esc(p.preview) || 'Без текста'}</span>
+          <span class="text-[11px] text-slate-600">${fmtDate(p.ts)} · #${p.message_id}</span>
+        </a>
+      </td>
+      <td><span class="chip" style="color:${TYPE_COLORS[p.kind]||'#94a3b8'}">${TYPE_NAMES[p.kind]||esc(p.kind)}</span></td>
+      <td class="text-right mono text-slate-200">${p.comments}</td>
+      <td class="text-right mono text-slate-400">${p.reactions}</td>
+    </tr>`).join('');
+}
+
+function renderMembers(members){
+  if (!members.length){
+    $('topMembers').innerHTML = `<tr><td colspan="3" class="text-slate-500 text-[12.5px] py-5">
+      Пока нет данных об участниках чата.</td></tr>`;
+    return;
+  }
+  $('topMembers').innerHTML = members.map(m => {
+    const [c1,c2] = hue(m.user_id);
+    return `<tr>
+      <td>
+        <div class="flex items-center gap-2.5">
+          <div class="avatar" style="background:linear-gradient(135deg,${c1},${c2})">${esc(initials(m.name))}</div>
+          <div class="min-w-0">
+            <div class="text-slate-200 truncate max-w-[170px]">${esc(m.name)}</div>
+            <div class="text-[11px] text-slate-600">${m.username ? '@'+esc(m.username) : 'без username'}</div>
+          </div>
+        </div>
+      </td>
+      <td>${m.is_member
+        ? '<span class="chip" style="color:#6ee7b7;border-color:rgba(52,211,153,.25)">в чате</span>'
+        : '<span class="chip" style="color:#f87171;border-color:rgba(248,113,113,.25)">вышел</span>'}</td>
+      <td class="text-right mono text-slate-200">${m.messages}</td>
+    </tr>`;
+  }).join('');
+}
+
+function renderFeed(events){
+  if (!events.length){
+    $('feed').innerHTML = `<p class="text-[12.5px] text-slate-500">
+      Событий пока нет. Они появятся сразу после первого поста или комментария.</p>`;
+    return;
+  }
+  $('feed').innerHTML = events.map(e => `
+    <div class="flex items-center gap-3 rounded-lg border border-white/[.06] bg-white/[.025] px-3 py-2">
+      <span class="text-[14px]">${KIND_ICON[e.kind]||'•'}</span>
+      <div class="flex-1 min-w-0">
+        <span class="text-[12.5px] text-slate-300">${KIND_TEXT[e.kind]||esc(e.kind)}</span>
+        ${e.name ? `<span class="text-[12.5px] text-slate-500"> · ${esc(e.name)}</span>` : ''}
+      </div>
+      <span class="mono text-[11px] text-slate-600 flex-none">${timeAgo(e.ts)}</span>
+    </div>`).join('');
+}
+
+function row(label, value, color){
+  return `<div class="flex items-center justify-between gap-3 rounded-lg bg-white/[.03] border border-white/[.06] px-3 py-2">
+    <span class="text-slate-400">${label}</span>
+    <span class="mono" style="color:${color||'#e2e8f0'}">${value}</span></div>`;
+}
+
+function renderSystem(d){
+  const up = Math.floor(d.live.uptime_sec||0);
+  const hh = String(Math.floor(up/3600)).padStart(2,'0');
+  const mm = String(Math.floor(up%3600/60)).padStart(2,'0');
+  const ss = String(up%60).padStart(2,'0');
+  $('sysRows').innerHTML =
+    row('Домен', d.live.domain || '—') +
+    row('Порт', '3000') +
+    row('Аптайм', `${hh}:${mm}:${ss}`, '#6ee7b7') +
+    row('rules.png', d.live.rules_image ? 'найден ✓' : 'нет файла', d.live.rules_image ? '#6ee7b7' : '#fbbf24');
+  $('botRows').innerHTML =
+    row('Приветствий', nf(d.totals.greetings), '#38bdf8') +
+    row('Правил отправлено', nf(d.totals.rules), '#c084fc') +
+    row('Запусков /start', nf(d.totals.starts), '#34d399') +
+    row('Участников в базе', nf(d.totals.members_tracked));
+}
+
+/* ─────────── ЗАГРУЗКА ─────────── */
+async function load(showSkeleton){
+  if (showSkeleton) document.querySelectorAll('.kpi-val').forEach(el => el.classList.add('skel'));
+  $('refreshIcon').style.transition = 'transform .6s';
+  $('refreshIcon').style.transform = 'rotate(360deg)';
+  setTimeout(()=>{ $('refreshIcon').style.transition='none'; $('refreshIcon').style.transform='none'; }, 620);
+
+  try{
+    const res = await fetch('/api/stats?days=' + state.days, {cache:'no-store'});
+    const d = await res.json();
+    state.data = d;
+
+    document.querySelectorAll('.kpi-val').forEach(el => el.classList.remove('skel'));
+    $('botName').textContent = d.live.bot || 'бот не подключён';
+    if (d.live.title) $('subtitle').textContent = d.live.title + ' · обновление каждые 15 секунд';
+
+    $('kSubs').textContent     = nf(d.live.subscribers);
+    $('kSubsSub').textContent  = d.live.subscribers === null ? 'нет прав администратора' : 'участников канала';
+    $('kChat').textContent     = nf(d.live.chat_members);
+    $('kChatSub').innerHTML    = `<span class="text-slate-500">активных в базе:</span> ${nf(d.totals.members_active)}`;
+    $('kPosts').textContent    = nf(d.totals.posts);
+    $('kPostsSub').innerHTML   = trendHTML(d.trends.posts);
+    $('kComments').textContent = nf(d.totals.comments);
+    $('kCommentsSub').innerHTML= trendHTML(d.trends.comments);
+    $('kJoins').textContent    = nf(d.totals.joins);
+    $('kJoinsSub').innerHTML   = trendHTML(d.trends.joins);
+    $('kLeaves').textContent   = nf(d.totals.leaves);
+    $('kRet').textContent      = d.totals.retention + '%';
+    $('kAvg').textContent      = d.totals.avg_comments;
+    $('kReactions').textContent= nf(d.totals.reactions);
+
+    drawLine(d.timeseries);
+    drawHours(d.hourly);
+    drawDonut(d.post_types);
+    drawHeat(d.heatmap);
+    renderPosts(d.top_posts);
+    renderMembers(d.top_members);
+    renderFeed(d.recent);
+    renderSystem(d);
+
+    $('updatedAt').textContent = new Date(d.generated_at*1000).toLocaleTimeString('ru-RU');
+    $('since').textContent = new Date(d.tracking_since*1000).toLocaleDateString('ru-RU');
+  }catch(err){
+    $('botName').textContent = 'сервер недоступен';
+  }
+}
+
+/* ─────────── УПРАВЛЕНИЕ ─────────── */
+$('periodSeg').addEventListener('click', e => {
+  const btn = e.target.closest('button'); if (!btn) return;
+  $('periodSeg').querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  state.days = +btn.dataset.days;
+  load(true);
+});
+
+document.querySelectorAll('.lg-toggle').forEach(btn => {
+  btn.style.cssText = 'background:none;border:0;cursor:pointer;color:#cbd5e1;padding:0';
+  btn.addEventListener('click', () => {
+    const k = btn.dataset.key;
+    state.series[k] = !state.series[k];
+    btn.style.opacity = state.series[k] ? '1' : '.4';
+    if (state.data) drawLine(state.data.timeseries);
+  });
+});
+
+$('refreshBtn').addEventListener('click', () => load(false));
+window.addEventListener('resize', () => {
+  if (!state.data) return;
+  clearTimeout(window._rz);
+  window._rz = setTimeout(() => {
+    drawLine(state.data.timeseries);
+    drawHours(state.data.hourly);
+  }, 160);
+});
+
+load(true);
+setInterval(() => load(false), 15000);
 </script>
 </body>
 </html>

@@ -5,6 +5,9 @@ __pycache__/
 *.pyc
 *.pyo
 *.log
+stats.db
+stats.db-wal
+stats.db-shm
 .venv/
 venv/
 .idea/

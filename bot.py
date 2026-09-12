@@ -22,7 +22,7 @@ import zlib
 from contextlib import suppress
 from pathlib import Path
 
-from aiogram import Bot, Dispatcher, F, Router
+from aiogram import BaseMiddleware, Bot, Dispatcher, F, Router
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ChatMemberStatus, ChatType, ParseMode
 from aiogram.exceptions import TelegramAPIError, TelegramBadRequest, TelegramForbiddenError
@@ -34,9 +34,11 @@ from aiogram.types import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     Message,
+    Update,
     User,
 )
 
+import stats
 from server import start_web
 
 # ──────────────────────────────────────────────────────────────
@@ -334,6 +336,8 @@ async def greet_new_member(bot: Bot, chat_id: int, user: User) -> None:
         return
 
     log.info("Поприветствовали %s (id=%s) в чате %s", full_name(user), user.id, chat_id)
+    with suppress(Exception):
+        stats.record_event("greeting", user_id=user.id, name=full_name(user))
     schedule_delete(bot, chat_id, sent.message_id)
 
 
@@ -417,6 +421,143 @@ async def send_rules_under_channel_post(message: Message) -> None:
         message.message_id,
         sent.message_id,
     )
+    with suppress(Exception):
+        stats.record_event("rules", message_id=message.message_id, thread_id=sent.message_id)
+
+
+# ──────────────────────────────────────────────────────────────
+#  СБОР СТАТИСТИКИ (middleware — не мешает обработчикам)
+# ──────────────────────────────────────────────────────────────
+
+def _post_kind(message: Message) -> str:
+    if message.media_group_id:
+        return "album"
+    if message.photo:
+        return "photo"
+    if message.video:
+        return "video"
+    if message.animation:
+        return "gif"
+    if message.document:
+        return "file"
+    if message.audio or message.voice:
+        return "audio"
+    if message.poll:
+        return "poll"
+    return "text"
+
+
+def _origin_post_id(message: Message) -> int | None:
+    """ID исходного поста канала для автопересланной копии."""
+    if message.forward_from_message_id:
+        return message.forward_from_message_id
+    origin = message.forward_origin
+    return getattr(origin, "message_id", None)
+
+
+class StatsMiddleware(BaseMiddleware):
+    """Пишет статистику по каждому апдейту, затем пропускает его дальше."""
+
+    async def __call__(self, handler, event: Update, data: dict):
+        with suppress(Exception):
+            await asyncio.to_thread(self._track, event)
+        return await handler(event, data)
+
+    @staticmethod
+    def _track(event: Update) -> None:
+        post = event.channel_post
+        if post is not None and post.chat.id == CHANNEL_ID:
+            text = post.text or post.caption or ""
+            stats.record_post(
+                post.message_id,
+                ts=int(post.date.timestamp()),
+                kind=_post_kind(post),
+                text_len=len(text),
+                preview=text.replace("\n", " ").strip(),
+            )
+            return
+
+        msg = event.message
+        if msg is not None:
+            if msg.chat.type == ChatType.PRIVATE:
+                if msg.text and msg.text.startswith("/start") and msg.from_user:
+                    stats.record_event(
+                        "start", user_id=msg.from_user.id, name=full_name(msg.from_user)
+                    )
+                return
+
+            if msg.chat.id != DISCUSSION_CHAT_ID:
+                return
+
+            if msg.is_automatic_forward:
+                stats.link_thread(_origin_post_id(msg), msg.message_id)
+                return
+
+            if msg.new_chat_members:
+                for user in msg.new_chat_members:
+                    if not user.is_bot:
+                        stats.upsert_member(
+                            user.id, user.first_name or "", user.last_name or "",
+                            user.username, joined=True,
+                        )
+                        stats.record_join(user.id, full_name(user), user.username)
+                return
+
+            if msg.left_chat_member and not msg.left_chat_member.is_bot:
+                stats.record_leave(msg.left_chat_member.id, full_name(msg.left_chat_member))
+                return
+
+            user = msg.from_user
+            if user and not user.is_bot:
+                stats.upsert_member(
+                    user.id, user.first_name or "", user.last_name or "", user.username
+                )
+                stats.record_comment(
+                    user.id,
+                    full_name(user),
+                    thread_id=msg.message_thread_id,
+                    message_id=msg.message_id,
+                    text_len=len(msg.text or msg.caption or ""),
+                )
+            return
+
+        member = event.chat_member
+        if member is not None and member.chat.id == DISCUSSION_CHAT_ID:
+            user = member.new_chat_member.user
+            if user.is_bot:
+                return
+            was = member.old_chat_member.status
+            now = member.new_chat_member.status
+            joined = was in ("left", "kicked") and now in ("member", "administrator", "creator")
+            left = was in ("member", "administrator", "creator") and now in ("left", "kicked")
+            if joined:
+                stats.upsert_member(
+                    user.id, user.first_name or "", user.last_name or "",
+                    user.username, joined=True,
+                )
+                stats.record_join(user.id, full_name(user), user.username)
+            elif left:
+                stats.record_leave(user.id, full_name(user))
+            return
+
+        reactions = event.message_reaction_count
+        if reactions is not None and reactions.chat.id == CHANNEL_ID:
+            total = sum(r.total_count for r in reactions.reactions)
+            stats.record_reactions(reactions.message_id, total)
+
+
+async def snapshot_loop(bot: Bot, interval: int = 600) -> None:
+    """Периодически фиксирует число подписчиков канала и участников чата."""
+    while True:
+        subscribers = chat_members = None
+        with suppress(Exception):
+            subscribers = await bot.get_chat_member_count(CHANNEL_ID)
+        with suppress(Exception):
+            chat_members = await bot.get_chat_member_count(DISCUSSION_CHAT_ID)
+        if subscribers is not None or chat_members is not None:
+            with suppress(Exception):
+                await asyncio.to_thread(stats.save_snapshot, subscribers, chat_members)
+        await asyncio.sleep(interval)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -443,25 +584,38 @@ async def main() -> None:
         raise SystemExit("❌ Укажите BOT_TOKEN в переменных окружения или в .env")
 
     ensure_rules_image()
+    stats.init()
 
     bot = Bot(
         token=BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
     dp = Dispatcher()
+    dp.update.outer_middleware(StatsMiddleware())
     dp.include_router(router)
     dp.startup.register(on_startup)
 
     # Веб-интерфейс на порту 3000 → https://serp.bothost.tech
     runner = await start_web(bot)
+    snapshots = asyncio.create_task(snapshot_loop(bot))
 
     await bot.delete_webhook(drop_pending_updates=True)
     try:
         await dp.start_polling(
             bot,
-            allowed_updates=["message", "edited_message", "chat_member", "my_chat_member"],
+            allowed_updates=[
+                "message",
+                "edited_message",
+                "channel_post",
+                "edited_channel_post",
+                "chat_member",
+                "my_chat_member",
+                "message_reaction",
+                "message_reaction_count",
+            ],
         )
     finally:
+        snapshots.cancel()
         await runner.cleanup()
         await bot.session.close()
 
