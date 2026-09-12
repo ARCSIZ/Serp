@@ -4,7 +4,7 @@ HTTP-сервер бота (админка / mini app / health-check).
 Слушает 0.0.0.0:3000 — именно этот порт пробрасывает хостинг bothost.tech
 на домен https://serp.bothost.tech с автоматическим SSL.
 
-Пока это пустая заготовка: отдаёт статику из ./public и служебные JSON-роуты.
+Пока это пустая заготовка: отдаёт корневой index.html и служебные JSON-роуты.
 Позже сюда добавляются админка, API и вебхук Telegram.
 """
 
@@ -24,7 +24,7 @@ WEB_PORT = int(os.getenv("WEB_PORT", "3000"))
 DOMAIN = os.getenv("DOMAIN", "serp.bothost.tech")
 
 BASE_DIR = Path(__file__).parent
-PUBLIC_DIR = BASE_DIR / "public"
+INDEX_FILE = BASE_DIR / "index.html"
 
 STARTED_AT = time.time()
 
@@ -35,9 +35,8 @@ STARTED_AT = time.time()
 
 async def index(request: web.Request) -> web.StreamResponse:
     """Главная страница — пустая заготовка интерфейса."""
-    file = PUBLIC_DIR / "index.html"
-    if file.exists():
-        return web.FileResponse(file)
+    if INDEX_FILE.exists():
+        return web.FileResponse(INDEX_FILE)
     return web.Response(text="Bot web interface is running.", content_type="text/plain")
 
 
@@ -84,10 +83,6 @@ def create_app(bot: object | None = None) -> web.Application:
     app.router.add_get("/", index)
     app.router.add_get("/health", health)
     app.router.add_get("/api/status", api_status)
-
-    if PUBLIC_DIR.exists():
-        app.router.add_static("/static/", PUBLIC_DIR, name="static", show_index=False)
-
     app.router.add_route("*", "/{tail:.*}", handle_404)
     return app
 
